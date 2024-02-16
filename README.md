@@ -1,5 +1,9 @@
 # cuexpm - Matrix Exponential Approximation using CUDA
 
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ ![GitHub Release](https://img.shields.io/github/v/release/maximilianbehr/cuexpm?display_name=release&style=flat)
+ ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/maximilianbehr/cuexpm/total)
+
 **Version:** 1.0.0
 
 **Copyright:** Maximilian Behr
@@ -52,7 +56,7 @@ SIAM Journal on Matrix Analysis and Applications 2005 26:4, 1179-1193
 ## Installation
 
 Prerequisites:
- * `cmake >= 3.23`
+ * `CMake >= 3.23`
  * `CUDA >= 11.4.2`
 
 ```shell
