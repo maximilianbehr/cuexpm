@@ -637,16 +637,6 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
     CHECK_CUSOLVER(cusolverDnCreateParams(&params));
     CHECK_CUSOLVER(cusolverDnSetAdvOptions(params, CUSOLVERDN_GETRF, CUSOLVER_ALG));
 
-#if 0
-    // compute workspace size
-    void *d_work, *h_work;
-
-    // allocate workspace
-    d_work = T1;
-    if (lworkhost > 0) {
-        h_work = malloc(lworkhost);
-    }
-#endif
     // split the memory buffer
     // memory layout: |U, V, T1, T2, T4, T6, T8| from 0 to (n * n * 7) -1
     //                |x, x, ipiv, info, dwork|  from n * n * 2         to n * n * 2 + n -1 (ipiv) overwrites T1
