@@ -14,7 +14,6 @@
 
 `cuexpm` support single and double precision as well as real and complex matrices.
 
-<center>
 
 | Functions                        | Data                             |
 | ---------------------------------|----------------------------------|
@@ -23,7 +22,6 @@
 | `cuexpmc_bufferSize`, `cuexpmc`  | complex, single precision matrix |
 | `cuexpmz_bufferSize`, `cuexpmz`  | complex, double precision matrix |
 
-</center>
 
 Available functions:
 
@@ -70,7 +68,6 @@ Prerequisites:
 
 We provide examples for all supported matrix formats:
 
-<center>
   
 | File                                       | Data                             |
 | -------------------------------------------|----------------------------------|
@@ -79,4 +76,3 @@ We provide examples for all supported matrix formats:
 | [`example_cuexpmc.cu`](example_cuexpmc.cu) | complex, single precision matrix |
 | [`example_cuexpmz.cu`](example_cuexpmz.cu) | complex, double precision matrix |
 
-</center>
