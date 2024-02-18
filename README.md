@@ -4,7 +4,7 @@
  ![GitHub Release](https://img.shields.io/github/v/release/maximilianbehr/cuexpm?display_name=release&style=flat)
  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/maximilianbehr/cuexpm/total)
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 
 **Copyright:** Maximilian Behr
 
@@ -12,7 +12,7 @@
 
 `cuexpm` is a `CUDA` library for the numerical approximation of the matrix exponential $e^A$.
 
-`cuexpm` support single and double precision as well as real and complex matrices.
+`cuexpm` supports single and double precision as well as real and complex matrices.
 
 
 | Functions                        | Data                             |

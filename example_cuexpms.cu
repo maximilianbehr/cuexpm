@@ -39,7 +39,7 @@ int main(void) {
     void *d_buffer = NULL;  // memory buffer on the device
     void *h_buffer = NULL;  // memory buffer on the host
 
-    /*------------------------  -----------------------------------------------------
+    /*-----------------------------------------------------------------------------
      * allocate A and expmA on the host
      *-----------------------------------------------------------------------------*/
     cudaMallocHost((void **)&A, sizeof(*A) * n * n);
@@ -121,6 +121,6 @@ int main(void) {
     cudaFree(d_A);
     cudaFree(d_expmA);
     cudaFree(d_buffer);
-    cudaFree(h_buffer);
+    cudaFreeHost(h_buffer);
     return 0;
 }
