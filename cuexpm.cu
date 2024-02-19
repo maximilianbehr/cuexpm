@@ -48,7 +48,7 @@
         if (error_code != cudaSuccess) {                                                                                                     \
             fprintf(stderr, "CUDA Error %d: %s. In file '%s' on line %d\n", error_code, cudaGetErrorString(error_code), __FILE__, __LINE__); \
             fflush(stderr);                                                                                                                  \
-            return -1;                                                                                                                       \
+            return -2;                                                                                                                       \
         }                                                                                                                                    \
     } while (false)
 
@@ -58,7 +58,7 @@
         if (error_code != CUBLAS_STATUS_SUCCESS) {                                                                                                 \
             fprintf(stderr, "CUBLAS Error %d - %s. In file '%s' on line %d\n", error_code, cublasGetStatusString(error_code), __FILE__, __LINE__); \
             fflush(stderr);                                                                                                                        \
-            return -2;                                                                                                                             \
+            return -3;                                                                                                                             \
         }                                                                                                                                          \
     } while (false)
 
@@ -92,7 +92,7 @@ static inline const char *cuexpm_cusolverGetErrorEnum(cusolverStatus_t error) {
         if (error_code != CUSOLVER_STATUS_SUCCESS) {                                                                                                       \
             fprintf(stderr, "CUSOLVER Error %d - %s. In file '%s' on line %d\n", error_code, cuexpm_cusolverGetErrorEnum(error_code), __FILE__, __LINE__); \
             fflush(stderr);                                                                                                                                \
-            return -3;                                                                                                                                     \
+            return -4;                                                                                                                                     \
         }                                                                                                                                                  \
     } while (false)
 
@@ -607,7 +607,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
     } else {
         fprintf(stderr, "m must be 3, 5, 7, 9, or 13\n");
         fflush(stderr);
-        return -4;
+        return -1;
     }
     CHECK_CUDA(cudaStreamSynchronize(streamU));
     CHECK_CUDA(cudaStreamSynchronize(streamV));

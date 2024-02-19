@@ -121,6 +121,6 @@ int main(void) {
     cudaFree(d_A);
     cudaFree(d_expmA);
     cudaFree(d_buffer);
-    cudaFree(h_buffer);
+    cudaFreeHost(h_buffer);
     return 0;
 }
