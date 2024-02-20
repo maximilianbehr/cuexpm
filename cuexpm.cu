@@ -671,9 +671,10 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
 
     for (int k = 0; k < s; ++k) {
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, &cuexpm_traits<T>::one, U, n, U, n, &cuexpm_traits<T>::zero, d_F, n));
-        CHECK_CUDA(cudaDeviceSynchronize());
         std::swap(U, d_F);
     }
+
+    CHECK_CUDA(cudaDeviceSynchronize());
 
     /*-----------------------------------------------------------------------------
      * free memory and destroy cuBlas handle

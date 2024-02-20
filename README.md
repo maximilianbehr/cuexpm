@@ -4,7 +4,7 @@
  ![GitHub Release](https://img.shields.io/github/v/release/maximilianbehr/cuexpm?display_name=release&style=flat)
  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/maximilianbehr/cuexpm/total)
 
-**Version:** 1.0.1
+**Version:** 1.0.2
 
 **Copyright:** Maximilian Behr
 
