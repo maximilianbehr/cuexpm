@@ -32,10 +32,10 @@ int cuexpms_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
 int cuexpmd_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
 int cuexpmc_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
 int cuexpmz_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
-int cuexpms(const float *d_A, const int n, void *d_buffer, void *h_buffer, float *d_expmA);
-int cuexpmd(const double *d_A, const int n, void *d_buffer, void *h_buffer, double *d_expmA);
-int cuexpmc(const cuComplex *d_A, const int n, void *d_buffer, void *h_buffer, cuComplex *d_expmA);
-int cuexpmz(const cuDoubleComplex *d_A, const int n, void *d_buffer, void *h_buffer, cuDoubleComplex *d_expmA);
+int cuexpms(const int n, const float *d_A, const int ldA, void *d_buffer, void *h_buffer, float *d_expmA, const int ldexpmA);
+int cuexpmd(const int n, const double *d_A, const int ldA, void *d_buffer, void *h_buffer, double *d_expmA, const int ldexpmA);
+int cuexpmc(const int n, const cuComplex *d_A, const int ldA, void *d_buffer, void *h_buffer, cuComplex *d_expmA, const int ldexpmA);
+int cuexpmz(const int n, const cuDoubleComplex *d_A, const int ldA, void *d_buffer, void *h_buffer, cuDoubleComplex *d_expmA, const int ldexpmA);
 #ifdef __cplusplus
 }
 #endif
