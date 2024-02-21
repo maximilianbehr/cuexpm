@@ -4,7 +4,7 @@
  ![GitHub Release](https://img.shields.io/github/v/release/maximilianbehr/cuexpm?display_name=release&style=flat)
  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/maximilianbehr/cuexpm/total)
 
-**Version:** 1.0.2
+**Version:** 2.0.0
 
 **Copyright:** Maximilian Behr
 
@@ -27,20 +27,21 @@ Available functions:
 
 ```C
 int cuexpms_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
-int cuexpms(const float *d_A, const int n, void *d_buffer, void *h_buffer, float *d_expmA);
+int cuexpms(const int n, const float *d_A, const int ldA, void *d_buffer, void *h_buffer, float *d_expmA, const int ldexpmA);
 ```
 ```C
 int cuexpmd_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
-int cuexpmd(const double *d_A, const int n, void *d_buffer, void *h_buffer, double *d_expmA);
+int cuexpmd(const int n, const double *d_A, const int ldA, void *d_buffer, void *h_buffer, double *d_expmA, const int ldexpmA);
 ```
 ```C
 int cuexpmc_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
-int cuexpmc(const cuComplex *d_A, const int n, void *d_buffer, void *h_buffer, cuComplex *d_expmA);
+int cuexpmc(const int n, const cuComplex *d_A, const int ldA, void *d_buffer, void *h_buffer, cuComplex *d_expmA, const int ldexpmA);
 ```
 ```C
 int cuexpmz_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize);
-int cuexpmz(const cuDoubleComplex *d_A, const int n, void *d_buffer, void *h_buffer, cuDoubleComplex *d_expmA);
+int cuexpmz(const int n, const cuDoubleComplex *d_A, const int ldA, void *d_buffer, void *h_buffer, cuDoubleComplex *d_expmA, const int ldexpmA);
 ```
+
 
 ## Algorithm
 

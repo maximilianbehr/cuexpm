@@ -292,22 +292,22 @@ struct cuexpm_traits<cuComplex> {
 };
 
 template <typename T>
-__global__ static void cuexpm_absrowsums(const T *__restrict__ d_A, const int n, double *__restrict__ buffer) {
+__global__ static void cuexpm_absrowsums(const int n, const T *__restrict__ d_A, const int ldA, double *__restrict__ buffer) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     for (int j = i; j < n; j += blockDim.x * gridDim.x) {
         double tmp = 0.;
         for (int k = 0; k < n; ++k) {
-            tmp += cuexpm_traits<T>::abs(d_A[k + j * n]);
+            tmp += cuexpm_traits<T>::abs(d_A[k + j * ldA]);
         }
         buffer[j] = tmp;
     }
 }
 
 template <typename T>
-static int cuexpm_matrix1norm(const T *__restrict__ d_A, const int n, void *d_buffer, double *__restrict__ d_nrmA1) {
+static int cuexpm_matrix1norm(const int n, const T *__restrict__ d_A, const int ldA, void *d_buffer, double *__restrict__ d_nrmA1) {
     *d_nrmA1 = 0.;
     double *buffer = reinterpret_cast<double *>(d_buffer);
-    cuexpm_absrowsums<<<(n + 255) / 256, 256>>>(d_A, n, buffer);
+    cuexpm_absrowsums<<<(n + 255) / 256, 256>>>(n, d_A, ldA, buffer);
     CHECK_CUDA(cudaPeekAtLastError());
     CHECK_CUDA(cudaDeviceSynchronize());
     *d_nrmA1 = *(thrust::max_element(thrust::device_pointer_cast(buffer), thrust::device_pointer_cast(buffer + n)));
@@ -315,9 +315,9 @@ static int cuexpm_matrix1norm(const T *__restrict__ d_A, const int n, void *d_bu
 }
 
 template <typename T>
-static int cuexpm_parameters(const T *__restrict__ d_A, const int n, void *d_buffer, int *m, int *s) {
+static int cuexpm_parameters(const int n, const T *__restrict__ d_A, const int ldA, void *d_buffer, int *m, int *s) {
     double eta1 = 0.;
-    CHECK_CUEXPM(cuexpm_matrix1norm(d_A, n, d_buffer, &eta1));
+    CHECK_CUEXPM(cuexpm_matrix1norm(n, d_A, ldA, d_buffer, &eta1));
     if constexpr (std::is_same<T, double>::value || std::is_same<T, cuDoubleComplex>::value) {
         const double theta[] = {1.495585217958292e-002, 2.539398330063230e-001, 9.504178996162932e-001, 2.97847961257068e+000, 5.371920351148152e+000};
         *s = 0;
@@ -363,15 +363,15 @@ static int cuexpm_parameters(const T *__restrict__ d_A, const int n, void *d_buf
 }
 
 template <typename T>
-__global__ static void setDiag(T *d_A, const int n, const T alpha) {
+__global__ static void setDiag(const int n, T *d_A, const int ldA, const T alpha) {
     int i0 = threadIdx.x + blockIdx.x * blockDim.x;
     int j0 = threadIdx.y + blockIdx.y * blockDim.y;
     for (int i = i0; i < n; i += blockDim.x * gridDim.x) {
         for (int j = j0; j < n; j += blockDim.y * gridDim.y) {
             if (i == j) {
-                d_A[i + j * n] = alpha;
+                d_A[i + j * ldA] = alpha;
             } else {
-                d_A[i + j * n] = cuexpm_traits<T>::zero;
+                d_A[i + j * ldA] = cuexpm_traits<T>::zero;
             }
         }
     }
@@ -390,10 +390,10 @@ __device__ static cuDoubleComplex &operator+=(cuDoubleComplex &a, const cuDouble
 }
 
 template <typename T>
-__global__ static void addDiag(T *d_A, const int n, const T alpha) {
+__global__ static void addDiag(const int n, T *d_A, const int ldA, const T alpha) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     for (int j = i; j < n; j += blockDim.x * gridDim.x) {
-        d_A[j + j * n] += alpha;
+        d_A[j + j * ldA] += alpha;
     }
 }
 
@@ -454,7 +454,7 @@ int cuexpmz_bufferSize(const int n, size_t *d_bufferSize, size_t *h_bufferSize) 
 }
 
 template <typename T>
-static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *d_F) {
+static int cuexpm(const int n, const T *d_A, const int ldA, void *d_buffer, void *h_buffer, T *d_F, const int ldF) {
     /*-----------------------------------------------------------------------------
      * kernel launch parameters
      *-----------------------------------------------------------------------------*/
@@ -467,7 +467,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
      * compute the scaling parameter and Pade approximant degree
      *-----------------------------------------------------------------------------*/
     int m, s;
-    CHECK_CUEXPM(cuexpm_parameters(d_A, n, d_buffer, &m, &s));
+    CHECK_CUEXPM(cuexpm_parameters(n, d_A, ldA, d_buffer, &m, &s));
     // printf("m = %d, s = %d\n", m, s);
 
     /*-----------------------------------------------------------------------------
@@ -492,7 +492,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
     /*-----------------------------------------------------------------------------
      * rescale T, T = T / 2^s
      *-----------------------------------------------------------------------------*/
-    CHECK_CUDA(cudaMemcpy(T1, d_A, sizeof(*d_A) * n * n, cudaMemcpyDeviceToDevice));
+    CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, d_A, ldA, &cuexpm_traits<T>::zero, T1, n, T1, n));
 
     typename cuexpm_traits<T>::S alpha = 1. / (1 << s);
     if (s != 0) {
@@ -521,33 +521,33 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
     CHECK_CUDA(cudaStreamCreate(&streamV));
     if (m == 3) {
         // U = U + c(3)*T2 + c(1)*I
-        setDiag<<<grid, block, 0, streamU>>>(U, n, cuexpm_traits<T>::Pade3[1]);
+        setDiag<<<grid, block, 0, streamU>>>(n, U, n, cuexpm_traits<T>::Pade3[1]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamU));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade3[3], T2, n, U, n));
 
         // V = V + c(2)*T2 + c(0)*I
-        setDiag<<<grid, block, 0, streamV>>>(V, n, cuexpm_traits<T>::Pade3[0]);
+        setDiag<<<grid, block, 0, streamV>>>(n, V, n, cuexpm_traits<T>::Pade3[0]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamV));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade3[2], T2, n, V, n));
     } else if (m == 5) {
         // U = U + c(5)*T4 + c(3)*T2 + c(1)*I
-        setDiag<<<grid, block, 0, streamU>>>(U, n, cuexpm_traits<T>::Pade5[1]);
+        setDiag<<<grid, block, 0, streamU>>>(n, U, n, cuexpm_traits<T>::Pade5[1]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamU));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade5[3], T2, n, U, n));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade5[5], T4, n, U, n));
 
         // V = V + c(4)*T4 + c(2)*T2 + c(0)*I
-        setDiag<<<grid, block, 0, streamV>>>(V, n, cuexpm_traits<T>::Pade5[0]);
+        setDiag<<<grid, block, 0, streamV>>>(n, V, n, cuexpm_traits<T>::Pade5[0]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamV));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade5[2], T2, n, V, n));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade5[4], T4, n, V, n));
     } else if (m == 7) {
         // U = U + c(7)*T6 + c(5)*T4 + c(3)*T2 + c(1)*I
-        setDiag<<<grid, block, 0, streamU>>>(U, n, cuexpm_traits<T>::Pade7[1]);
+        setDiag<<<grid, block, 0, streamU>>>(n, U, n, cuexpm_traits<T>::Pade7[1]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamU));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade7[3], T2, n, U, n));
@@ -555,7 +555,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade7[7], T6, n, U, n));
 
         // V = V + c(6)*T6 + c(4)*T4 + c(2)*T2 + c(0)*I
-        setDiag<<<grid, block, 0, streamV>>>(V, n, cuexpm_traits<T>::Pade7[0]);
+        setDiag<<<grid, block, 0, streamV>>>(n, V, n, cuexpm_traits<T>::Pade7[0]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamV));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade7[2], T2, n, V, n));
@@ -563,7 +563,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade7[6], T6, n, V, n));
     } else if (m == 9) {
         // U = U + c(9)*T8 + c(7)*T6 + c(5)*T4 + c(3)*T2 + c(1)*I
-        setDiag<<<grid, block, 0, streamU>>>(U, n, cuexpm_traits<T>::Pade9[1]);
+        setDiag<<<grid, block, 0, streamU>>>(n, U, n, cuexpm_traits<T>::Pade9[1]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamU));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade9[3], T2, n, U, n));
@@ -572,7 +572,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade9[9], T8, n, U, n));
 
         // V = V + c(6)*T6 + c(4)*T4 + c(2)*T2 + c(0)*I
-        setDiag<<<grid, block, 0, streamV>>>(V, n, cuexpm_traits<T>::Pade9[0]);
+        setDiag<<<grid, block, 0, streamV>>>(n, V, n, cuexpm_traits<T>::Pade9[0]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamV));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade9[2], T2, n, V, n));
@@ -581,7 +581,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade9[8], T8, n, V, n));
     } else if (m == 13) {
         //  U = T6*(c(13)*T6 + c(11)*T4 + c(9)*T2) + c(7)*T6 + c(5)*T4 + c(3)*T2 + c(1)*I;
-        setDiag<<<grid, block, 0, streamU>>>(U, n, cuexpm_traits<T>::Pade13[1]);
+        setDiag<<<grid, block, 0, streamU>>>(n, U, n, cuexpm_traits<T>::Pade13[1]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamU));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::Pade13[3], T2, n, U, n));
@@ -592,7 +592,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, &cuexpm_traits<T>::one, T6, n, T8, n, &cuexpm_traits<T>::one, U, n));
 
         // V = T6*(c(12)*T6 + c(10)*T4 + c(8)*T2) + c(6)*T6 + c(4)*T4 + c(2)*T2 + c(0)*I;
-        setDiag<<<grid, block, 0, streamV>>>(V, n, cuexpm_traits<T>::Pade13[0]);
+        setDiag<<<grid, block, 0, streamV>>>(n, V, n, cuexpm_traits<T>::Pade13[0]);
         CHECK_CUDA(cudaPeekAtLastError());
         CHECK_CUBLAS(cublasSetStream(cublasH, streamV));
         CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, V, n, &cuexpm_traits<T>::Pade13[2], T2, n, V, n));
@@ -657,7 +657,7 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
     CHECK_CUSOLVER(cusolverDnDestroyParams(params));
 
     // add identity
-    addDiag<<<blocksPerGrid, threadsPerBlock>>>(U, n, cuexpm_traits<T>::one);
+    addDiag<<<blocksPerGrid, threadsPerBlock>>>(n, U, n, cuexpm_traits<T>::one);
     CHECK_CUDA(cudaPeekAtLastError());
 
     /*-----------------------------------------------------------------------------
@@ -669,9 +669,12 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
         s--;
     }
 
+    int ldU = n;
+    int ldF_ = ldF;  // save original ldF
     for (int k = 0; k < s; ++k) {
-        CHECK_CUBLAS(cuexpm_traits<T>::cublasXgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, &cuexpm_traits<T>::one, U, n, U, n, &cuexpm_traits<T>::zero, d_F, n));
+        CHECK_CUBLAS(cuexpm_traits<T>::cublasXgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, &cuexpm_traits<T>::one, U, ldU, U, ldU, &cuexpm_traits<T>::zero, d_F, ldF_));
         std::swap(U, d_F);
+        std::swap(ldU, ldF_);
     }
 
     CHECK_CUDA(cudaDeviceSynchronize());
@@ -683,18 +686,18 @@ static int cuexpm(const T *d_A, const int n, void *d_buffer, void *h_buffer, T *
     return 0;
 }
 
-int cuexpms(const float *d_A, const int n, void *d_buffer, void *h_buffer, float *d_expmA) {
-    return cuexpm(d_A, n, d_buffer, h_buffer, d_expmA);
+int cuexpms(const int n, const float *d_A, const int ldA, void *d_buffer, void *h_buffer, float *d_expmA, const int ldexpmA) {
+    return cuexpm(n, d_A, ldA, d_buffer, h_buffer, d_expmA, ldexpmA);
 }
 
-int cuexpmd(const double *d_A, const int n, void *d_buffer, void *h_buffer, double *d_expmA) {
-    return cuexpm(d_A, n, d_buffer, h_buffer, d_expmA);
+int cuexpmd(const int n, const double *d_A, const int ldA, void *d_buffer, void *h_buffer, double *d_expmA, const int ldexpmA) {
+    return cuexpm(n, d_A, ldA, d_buffer, h_buffer, d_expmA, ldexpmA);
 }
 
-int cuexpmc(const cuComplex *d_A, const int n, void *d_buffer, void *h_buffer, cuComplex *d_expmA) {
-    return cuexpm(d_A, n, d_buffer, h_buffer, d_expmA);
+int cuexpmc(const int n, const cuComplex *d_A, const int ldA, void *d_buffer, void *h_buffer, cuComplex *d_expmA, const int ldexpmA) {
+    return cuexpm(n, d_A, ldA, d_buffer, h_buffer, d_expmA, ldexpmA);
 }
 
-int cuexpmz(const cuDoubleComplex *d_A, const int n, void *d_buffer, void *h_buffer, cuDoubleComplex *d_expmA) {
-    return cuexpm(d_A, n, d_buffer, h_buffer, d_expmA);
+int cuexpmz(const int n, const cuDoubleComplex *d_A, const int ldA, void *d_buffer, void *h_buffer, cuDoubleComplex *d_expmA, const int ldexpmA) {
+    return cuexpm(n, d_A, ldA, d_buffer, h_buffer, d_expmA, ldexpmA);
 }
