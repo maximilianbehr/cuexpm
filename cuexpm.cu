@@ -516,6 +516,7 @@ static int cuexpm(const int n, const T *d_A, const int ldA, void *d_buffer, void
     /*-----------------------------------------------------------------------------
      * compute U and V for the Pade approximant independently on different streams
      *-----------------------------------------------------------------------------*/
+    CHECK_CUDA(cudaDeviceSynchronize());
     cudaStream_t streamU, streamV;
     CHECK_CUDA(cudaStreamCreate(&streamU));
     CHECK_CUDA(cudaStreamCreate(&streamV));
