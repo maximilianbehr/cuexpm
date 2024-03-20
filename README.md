@@ -2,7 +2,9 @@
 
  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
  ![GitHub Release](https://img.shields.io/github/v/release/maximilianbehr/cuexpm?display_name=release&style=flat)
- ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/maximilianbehr/cuexpm/total)
+ [![DOI](https://zenodo.org/badge/758500958.svg)](https://zenodo.org/doi/10.5281/zenodo.10844529)
+
+
 
 **Version:** 2.0.0
 
