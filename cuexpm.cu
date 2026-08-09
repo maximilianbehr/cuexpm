@@ -678,6 +678,11 @@ static int cuexpm(const int n, const T *d_A, const int ldA, void *d_buffer, void
         std::swap(ldU, ldF_);
     }
 
+    // S is 0, simple swap address won't work
+    if (s == 0) {
+        CHECK_CUBLAS(cuexpm_traits<T>::cublasXgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, n, n, &cuexpm_traits<T>::one, U, n, &cuexpm_traits<T>::zero, d_F, n, d_F, n));
+    }
+
     CHECK_CUDA(cudaDeviceSynchronize());
 
     /*-----------------------------------------------------------------------------
